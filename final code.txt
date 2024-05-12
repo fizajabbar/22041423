@@ -1,0 +1,101 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# Load Data
+def load_data(filepath):
+    data = pd.read_excel(filepath)
+    return data
+
+# Preprocess Data
+def preprocess_data(data):
+    data['Date'] = pd.to_datetime(data['Date'], errors='coerce')
+    data.dropna(inplace=True)
+    return data
+
+# Feature Engineering
+def feature_engineering(data):
+    data['Month'] = data['Date'].dt.month
+    data['Year'] = data['Date'].dt.year
+    data['DayOfWeek'] = data['Date'].dt.dayofweek
+    return data.drop(['Date'], axis=1)
+
+# Split Data
+def split_data(data, target='Weekly_Sales'):
+    X = data.drop(target, axis=1)
+    y = data[target]
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    return X_train, X_test, y_train, y_test
+
+# Scale Features
+def scale_features(X_train, X_test):
+    scaler = StandardScaler()
+    X_train_scaled = scaler.fit_transform(X_train)
+    X_test_scaled = scaler.transform(X_test)
+    return X_train_scaled, X_test_scaled
+
+# Train Model
+def train_model(X_train, y_train):
+    model = RandomForestRegressor(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
+    return model
+
+# Evaluate Model
+def evaluate_model(model, X_test, y_test):
+    predictions = model.predict(X_test)
+    mse = mean_squared_error(y_test, predictions)
+    mae = mean_absolute_error(y_test, predictions)
+    r2 = r2_score(y_test, predictions)
+    print(f"RMSE: {np.sqrt(mse)}, MAE: {mae}, R2: {r2}")
+    return predictions, np.sqrt(mse), mae, r2
+
+# Visualization 1: Feature Importance
+def plot_feature_importances(model, columns):
+    importances = model.feature_importances_
+    indices = np.argsort(importances)[::-1]
+    plt.figure(figsize=(10, 6))
+    plt.title('Feature Importances')
+    plt.barh(range(len(indices)), importances[indices], color='b', align='center')
+    plt.yticks(range(len(indices)), [columns[i] for i in indices])
+    plt.xlabel('Relative Importance')
+    plt.show()
+
+# Visualization 2: Actual vs. Predicted Sales
+def plot_actual_vs_predicted(y_test, predictions):
+    plt.figure(figsize=(10, 6))
+    plt.scatter(y_test, predictions, alpha=0.5)
+    plt.title('Actual vs. Predicted Sales')
+    plt.xlabel('Actual Sales')
+    plt.ylabel('Predicted Sales')
+    plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'k--', lw=4)
+    plt.show()
+
+# Visualization 3: Residuals Plot
+def plot_residuals(y_test, predictions):
+    residuals = y_test - predictions
+    plt.figure(figsize=(10, 6))
+    sns.histplot(residuals, kde=True)
+    plt.title('Distribution of Residuals')
+    plt.xlabel('Residuals')
+    plt.show()
+
+# Main function
+def main():
+    data = load_data('Walmart_Store_sales.xlsx')
+    data = preprocess_data(data)
+    data = feature_engineering(data)
+    X_train, X_test, y_train, y_test = split_data(data)
+    X_train_scaled, X_test_scaled = scale_features(X_train, X_test)
+    model = train_model(X_train_scaled, y_train)
+    predictions, rmse, mae, r2 = evaluate_model(model, X_test_scaled, y_test)
+    plot_feature_importances(model, X_train.columns)
+    plot_actual_vs_predicted(y_test, predictions)
+    plot_residuals(y_test, predictions)
+
+if __name__ == '__main__':
+    main()
